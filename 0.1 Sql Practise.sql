@@ -1,4 +1,391 @@
 -- Databricks notebook source
+drop table if exists namaste_orders;
+create table namaste_orders
+(
+order_id int,
+city varchar(10),
+sales int
+);
+
+create table namaste_returns
+(
+order_id int,
+return_reason varchar(20)
+);
+
+insert into namaste_orders
+values(1, 'Mysore' , 100),(2, 'Mysore' , 200),(3, 'Bangalore' , 250),(4, 'Bangalore' , 150)
+,(5, 'Mumbai' , 300),(6, 'Mumbai' , 500),(7, 'Mumbai' , 800)
+;
+insert into namaste_returns values
+(3,'wrong item'),(6,'bad quality'),(7,'wrong item');
+
+-- COMMAND ----------
+
+with rama as (select r.order_id,r.return_reason,o.city from namaste_orders as o inner join namaste_returns as r on o.order_id= r.order_id
+)
+select distinct o.city
+from namaste_orders as o left join rama dee on o.city = dee.city
+where dee.city is null
+
+-- COMMAND ----------
+
+select * from namaste_returns;
+
+-- COMMAND ----------
+
+drop table if exists visits;
+Create table If Not Exists
+Visits (
+user_id int,
+visit_date date
+);
+
+drop table if exists transactions;
+Create table If Not Exists
+Transactions (user_id int,
+transaction_date date, amount int
+);
+
+insert into Visits (user_id, visit_date) values
+('1', '2020-01-01'),('2', '2020-01-02'),('12', '2020-01-01'),('19', '2020-01-03')
+,('1', '2020-01-02'),('2', '2020-01-03'),('1', '2020-01-04'),('7', '2020-01-11')
+,('9', '2020-01-25'),('8', '2020-01-28');
+
+insert into Transactions (user_id, transaction_date, amount) values ('1', '2020-01-02', '120'), ('2', '2020-01-03', '22'),('7', '2020-01-11', '232'),('1', '2020-01-04', '7'),('9', '2020-01-25', '33'),('9', '2020-01-25', '66'),('8', '2020-01-28', '1'),('9', '2020-01-25', '99');
+
+
+-- COMMAND ----------
+
+select * from visits
+order by user_id
+
+-- COMMAND ----------
+
+select * from transactions
+order by user_id;
+
+-- COMMAND ----------
+
+--solution 1
+select 0 as Transaction_count,
+sum(case when t.transaction_date is null then 1 end) as visitscount
+from visits v 
+left join transactions t on v.user_id = t.user_id and v.visit_date = t.transaction_date
+group by 1
+union
+select 1 as transaction_count,sum(visu) as visitscount
+from(
+select 
+count(*) as visu
+from visits v 
+inner join transactions t on v.user_id = t.user_id and v.visit_date = t.transaction_date
+group by v.user_id,v.visit_date
+having count(*) = 1)
+union
+select 2 as transaction_count,sum(visu) as visitscount
+from(
+select 
+count(*) as visu
+from visits v 
+inner join transactions t on v.user_id = t.user_id and v.visit_date = t.transaction_date
+group by v.user_id,v.visit_date
+having count(*) = 2)
+union
+select 3 as transaction_count,sum(visu) as visitscount
+from(
+select 
+count(*) as visu
+from visits v 
+inner join transactions t on v.user_id = t.user_id and v.visit_date = t.transaction_date
+group by v.user_id,v.visit_date
+having count(*) = 3)
+
+-- COMMAND ----------
+
+with cte as (
+select 
+t.user_id,t.transaction_date,count(1) as cnt
+from visits v 
+left join transactions t on v.user_id = t.user_id and v.visit_date = t.transaction_date
+group by t.user_id,t.transaction_date
+)
+select case when user_id is null and transaction_date is null then 0 else cnt end as transaction_count,count(*) as visitscount
+ from cte
+ group by case when user_id is null and transaction_date is null then 0 else cnt end
+
+-- COMMAND ----------
+
+with cte as (select 
+v.user_id,v.visit_date,t.user_id as tuser_id,t.transaction_date,
+count(*) as cnt
+from visits v 
+left join transactions t on v.user_id = t.user_id and v.visit_date = t.transaction_date
+group by v.user_id,v.visit_date,t.user_id,t.transaction_date
+)
+select case when tuser_id is null and transaction_date is null then 0 else cnt end as transaction_count,count(*) as visitscount
+ from cte
+ group by case when tuser_id is null and transaction_date is null then 0 else cnt end
+
+-- COMMAND ----------
+
+insert into tab1 values (1),(1),(2),(2),(1),(1);
+insert into tab2 values (1),(1),(2),(4);
+
+-- COMMAND ----------
+
+select * from tab1;
+
+-- COMMAND ----------
+
+
+select * from tab2;
+
+-- COMMAND ----------
+
+select * from tab1 right join tab2 on tab1.id = tab2.id
+
+-- COMMAND ----------
+
+create table exams (student_id int, subject varchar(20), marks int);
+
+insert into exams values (1,'Chemistry',91),(1,'Physics',91),(1,'Maths',92)
+,(2,'Chemistry',80),(2,'Physics',90)
+,(3,'Chemistry',80),(3,'Maths',80)
+,(4,'Chemistry',71),(4,'Physics',54)
+,(5,'Chemistry',79);
+
+-- COMMAND ----------
+
+insert into exams values (6,'Chemistry',75),(6,'Physics',75)
+
+-- COMMAND ----------
+
+with cte as (select 
+student_id,subject,marks,
+case when marks = lead(marks) over(partition by student_id order by subject) then 1 end as leadsubjects
+from exams
+where subject in ("Physics","Chemistry")
+)
+select distinct student_id from cte
+where leadsubjects = 1
+
+-- COMMAND ----------
+
+SELECT ex1.student_id FROM exams AS ex1
+JOIN exams ex2 ON (ex1.student_id=ex2.student_id AND ex1.marks=ex2.marks)
+WHERE ex1.subject IN ('Physics')
+AND ex2.subject IN ('Chemistry')
+
+-- COMMAND ----------
+
+drop table if exists people;
+create table people(id int,
+name varchar(20),
+gender char(2));
+
+drop table relations;
+create table relations(c_id int,
+p_id int
+);
+
+insert into people (id, name, gender) values
+(107,'Days','F'),
+(145,'Hawbaker','M'),
+(155,'Hansel','F'),
+(202,'Blackston','M'),
+(227,'Criss','F'),
+(278,'Keffer','M'),
+(305,'Canty','M'),
+(329,'Mozingo','M'),
+(425,'Nolf','M'),
+(534,'Waugh','M'),
+(586,'Tong','M'),
+(618,'Dimartino','M'),
+(747,'Beane','M'),
+(878,'Chatmon','F'),
+(904,'Hansard','F');
+
+insert into relations(c_id, p_id) values
+(145, 202),
+(145, 107),
+(278,305),
+(278,155),
+(329, 425),
+(329,227),
+(534,586),
+(534,878),
+(618,747),
+(618,904);
+
+-- COMMAND ----------
+
+with cte as(select 
+p.name,
+r.p_id
+from 
+people p join relations r on r.c_id = p.id
+)
+select 
+c.name as child,p.name as father,
+p.gender
+from cte c join people p on c.p_id = p.id
+
+-- COMMAND ----------
+
+select 
+p.name,
+r.p_id
+from 
+people p join relations r on r.c_id = p.id
+
+-- COMMAND ----------
+
+SELECT p1.name AS child
+ ,MAX(CASE WHEN p2.gender = 'M' THEN p2.name END) AS father
+ ,MAX(CASE WHEN p2.gender = 'F' THEN p2.name END) AS mother
+FROM people p1
+INNER JOIN relations r ON p1.id = r.c_id
+INNER JOIN people p2 ON r.p_id = p2.id
+GROUP BY p1.name
+ORDER BY child;
+
+-- COMMAND ----------
+
+drop table travel;
+
+-- COMMAND ----------
+
+CREATE TABLE travel ( source VARCHAR(512),
+  destination VARCHAR(512),
+  distance INT
+);
+INSERT INTO travel VALUES ('Mumbai', 'Bangalore', '500'),
+('Bangalore', 'Mumbai', '500'),
+('Delhi', 'Mathura', '150'),
+('Mathura', 'Delhi', '150'),
+('Nagpur', 'Pune', '500'),
+('Pune', 'Nagpur', '500'),
+("Mumbai","Hyderabad",'750')
+
+-- COMMAND ----------
+
+WITH cte1
+AS (
+SELECT *
+,ROW_NUMBER() OVER (ORDER BY (SELECT 1)) AS rn
+FROM travel
+)
+SELECT c1.source
+,c1.destination
+,c1.distance
+FROM cte1 c1
+INNER JOIN cte1 c2 ON c2.destination = c1.source
+AND c1.rn < c2.rn;
+
+-- COMMAND ----------
+
+create table airlines_data(airline_id int, airline_name string);
+
+insert into airlines_data values (1, "Airline A"),(2, "Airline B"),(3, "Airline C");
+
+-- COMMAND ----------
+
+create table flights_data(flight_id int,airline_id int,destination_airport_id int);
+insert into flights_data values  (1, 1, 101),  (2, 1, 102),  (3, 2, 101), (4, 2, 103),(5, 3, 101),  (6, 3, 102), (7, 3, 103);
+
+-- COMMAND ----------
+
+select * from flights_data
+
+-- COMMAND ----------
+
+select airline_id
+from flights_data
+group by airline_id
+having count(distinct destination_airport_id) = (select count(distinct destination_airport_id) from flights_data)
+
+-- COMMAND ----------
+
+create table medications(medication_id int , medication_name String);
+
+insert into medications values (1, "Medication A"),(2, "Medication B"),(3, "Medication C"),(4, "Medication D"),(5, "Medication E");
+
+-- COMMAND ----------
+
+select * from medications
+
+-- COMMAND ----------
+
+create table prescriptions (prescription_id int, doctor_id int, medication_id int);
+
+insert into prescriptions values (1, 1, 1),(2, 2, 1),(3, 3, 1), (4, 1, 2), (5, 2, 2), (6, 3, 2),
+    (7, 1, 3),(8, 2, 4),(9, 3, 4),(10, 4, 5),(11, 5, 5),(12, 6, 5);
+
+-- COMMAND ----------
+
+select * from prescriptions;
+
+-- COMMAND ----------
+
+select medication_name
+from prescriptions p join medications m on m.medication_id = p.medication_id
+group by medication_name
+having count(distinct doctor_id) >= 3
+
+-- COMMAND ----------
+
+create table sku
+(
+sku_id int,
+price_date date ,
+price int
+);
+
+insert into sku values
+(1,'2023-01-01',10)
+,(1,'2023-02-15',15)
+,(1,'2023-03-03',18)
+,(1,'2023-03-27',15)
+,(1,'2023-04-06',20);
+
+-- COMMAND ----------
+
+select * from sku
+
+-- COMMAND ----------
+
+select
+sku_id,
+price_date,
+date_trunc('MONTH',price_date) as truncdate,
+lag(price) over(order by price_date) as prevprice,
+case when price_date = date_trunc('MONTH',price_date) then price else lag(price) over(order by price_date) end as newprice,
+price
+from
+sku
+
+-- COMMAND ----------
+
+create table teams(empid int,teamid int)
+
+-- COMMAND ----------
+
+insert into teams values (1,8),(2,8),(3,8),(4,7),(5,9),(6,9)
+
+-- COMMAND ----------
+
+with cte as (
+  select teamid,count(*) as cnt
+  from teams
+  group by teamid
+)
+select empid,cnt
+from teams t join cte c on c.teamid = t.teamid
+order by empid
+
+-- COMMAND ----------
+
 create table flights(id int,flight_id string,origin string,destination string);
 
 -- COMMAND ----------

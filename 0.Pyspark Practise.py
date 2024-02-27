@@ -1,5 +1,5 @@
 # Databricks notebook source
-from pyspark.sql.functions import col,lit,desc,to_date,lag,lead,avg,sum,unix_timestamp,rank,dense_rank,row_number,substring,split,explode,expr,count,to_timestamp,when,max,min,date_diff,date_format,day,countDistinct,from_json,schema_of_json,round,asc
+from pyspark.sql.functions import col,lit,desc,to_date,lag,lead,avg,sum,unix_timestamp,rank,dense_rank,row_number,substring,split,explode,expr,count,to_timestamp,when,max,min,date_diff,date_format,day,countDistinct,from_json,schema_of_json,round,asc,countDistinct
 
 # COMMAND ----------
 
@@ -8,6 +8,193 @@ from pyspark.sql.window import Window
 # COMMAND ----------
 
 from pyspark import Row
+
+# COMMAND ----------
+
+data = [
+   ('Jan',2000,1500,3000),
+   ('Feb',1000,2500,4000),
+   ('Mar',2000,1400,1000),
+   ('Apr',3000,1500,1000)
+]
+
+# COMMAND ----------
+
+df = spark.createDataFrame(data,"month string,clothing int,electronics int,sports int")
+df.display()
+
+# COMMAND ----------
+
+window  = Window.orderBy(col("TotSales").desc())
+
+# COMMAND ----------
+
+df.groupBy(col("month")) \
+  .agg((sum(col("clothing") + col("electronics") + col("sports")).alias("TotSales"))) \
+  .withColumn("SalesRank",dense_rank().over(window)) \
+  .filter(col("SalesRank") == 1).display()
+
+# COMMAND ----------
+
+delivery_data = [
+    (1, 1, "2019-08-01", "2019-08-02"),
+    (2, 2, "2019-08-02", "2019-08-02"),
+    (3, 1, "2019-08-11", "2019-08-12"),
+    (4, 3, "2019-08-24", "2019-08-24"),
+    (5, 3, "2019-08-21", "2019-08-22"),
+    (6, 2, "2019-08-11", "2019-08-13"),
+    (7, 4, "2019-08-09", "2019-08-09")
+]
+
+delivery_schema = "delivery_id int, customer_id int, order_date string, customer_pref_delivery_date string"
+
+# COMMAND ----------
+
+df = spark.createDataFrame(delivery_data,delivery_schema)
+
+# COMMAND ----------
+
+df = df.withColumn("order_date",col("order_date").cast("date")) \
+       .withColumn("customer_pref_delivery_date",col("customer_pref_delivery_date").cast("date"))
+df.display()
+
+# COMMAND ----------
+
+window = Window.partitionBy(col("customer_id")).orderBy(col("order_date"))
+
+# COMMAND ----------
+
+df.withColumn("customerorders",dense_rank().over(window)) \
+  .filter(col("customerorders") == 1) \
+  .withColumn("sameday",when(col("order_date") == col("customer_pref_delivery_date"),1)) \
+  .agg(sum(col("customerorders")).alias("customorders"),sum(col("sameday")).alias("sameorders")) \
+  .withColumn("percent",round((col("sameorders").cast("float") / col("customorders").cast("float"))*100,1)).display()
+
+# COMMAND ----------
+
+data = [
+    (1, 'Math', 90),
+    (1, 'Science', 93),
+    (1, 'History', 85),
+    (2, 'Math', 85),
+    (2, 'Science', 79),
+    (2, 'History', 96),
+    (3, 'Math', 95),
+    (3, 'Science', 87),
+    (3, 'History', 77),
+    (4, 'Math', 78),
+    (4, 'Science', 91),
+    (4, 'History', 90),
+    (5, 'Math', 92),
+    (5, 'Science', 84),
+    (5, 'History', 88),
+]
+
+# COMMAND ----------
+
+df = spark.createDataFrame(data,"studentid int,subject string,marks int")
+df.display()
+
+# COMMAND ----------
+
+window = Window.partitionBy(col("subject")).orderBy(col("marks").desc())
+
+# COMMAND ----------
+
+df.withColumn("subjectrank",dense_rank().over(window)) \
+  .filter(col("subjectrank") == 1) \
+  .select(col("studentid"),col("subject"),col("marks")).display()
+
+# COMMAND ----------
+
+
+employee_projects_data = [
+    (1, 'Project1', '2022-01-10'),
+    (1, 'Project2', '2022-02-15'),
+    (1, 'Project3', '2022-03-20'),
+    (2, 'Project1', '2022-01-05'),
+    (2, 'Project2', '2022-02-10'),
+    (2, 'Project3', '2022-03-15'),
+    (2, 'Project4', '2022-04-20')
+]
+
+# COMMAND ----------
+
+df = spark.createDataFrame(employee_projects_data,"employee_id int ,project_name string, project_date string")
+df.display()
+
+# COMMAND ----------
+
+df.withColumn("project_date",col("project_date").cast("date")) \
+  .groupBy(col("employee_id")) \
+  .agg(countDistinct(col("project_name")).alias("ProjectsCount"),max(col("project_date")).alias("LatestProject")) \
+  .display()
+
+# COMMAND ----------
+
+prescriptions_data = [
+    (1, 1, 1),
+    (2, 2, 1),
+    (3, 3, 1),
+    (4, 1, 2),
+    (5, 2, 2),
+    (6, 3, 2),
+    (7, 1, 3),
+    (8, 2, 4),
+    (9, 3, 4),
+    (10, 4, 5),
+    (11, 5, 5),
+    (12, 6, 5)
+]
+
+# COMMAND ----------
+
+df = spark.createDataFrame(prescriptions_data,"pres_id int,doctor_id int,medication_id int")
+df.display()
+
+# COMMAND ----------
+
+df.groupBy(col("medication_id")) \
+  .agg(countDistinct(col("doctor_id")).alias("doctorcount")) \
+  .filter(col("doctorcount") >= 3) \
+  .display()
+
+# COMMAND ----------
+
+airlines_data = [
+    (1, "Airline A"),
+    (2, "Airline B"),
+    (3, "Airline C"),
+]
+
+# COMMAND ----------
+
+flights_data = [
+    (1, 1, 101),  
+    (2, 1, 102),  
+    (3, 2, 101), 
+    (4, 2, 103),
+    (5, 3, 101),  
+    (6, 3, 102), 
+    (7, 3, 103) 
+]
+
+# COMMAND ----------
+
+df = spark.createDataFrame(flights_data,"flight_id int,airline_id int,destination_airport_id int")
+df.display()
+
+# COMMAND ----------
+
+df2 = df.select(col("destination_airport_id")).distinct().count()
+df2
+
+# COMMAND ----------
+
+df.groupBy("airline_id") \
+  .agg(countDistinct(col("destination_airport_id")).alias("airportscount")) \
+  .filter(col("airportscount") == df2) \
+  .display()
 
 # COMMAND ----------
 
