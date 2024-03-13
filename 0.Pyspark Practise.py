@@ -1,5 +1,5 @@
 # Databricks notebook source
-from pyspark.sql.functions import col,lit,desc,to_date,lag,lead,avg,sum,unix_timestamp,rank,dense_rank,row_number,substring,split,explode,expr,count,to_timestamp,when,max,min,date_diff,date_format,day,countDistinct,from_json,schema_of_json,round,asc,countDistinct
+from pyspark.sql.functions import col,lit,desc,to_date,lag,lead,avg,sum,unix_timestamp,rank,dense_rank,row_number,substring,split,explode,expr,count,to_timestamp,when,max,min,date_diff,date_format,day,countDistinct,from_json,schema_of_json,round,asc,countDistinct,coalesce,ifnull
 
 # COMMAND ----------
 
@@ -12,11 +12,51 @@ from pyspark import Row
 # COMMAND ----------
 
 data = [
+    (3, 108939),
+    (2, 12747),
+    (8, 87709),
+    (6, 91796)
+]
+
+# COMMAND ----------
+
+df = spark.createDataFrame(data,"id int,income int")
+df.display()
+
+# COMMAND ----------
+
+salary = spark.createDataFrame([
+    ("Low Salary",),
+    ("Average Salary",),
+    ("High Salary",)
+], ["category"])
+
+# COMMAND ----------
+
+df2 = df.withColumn("Income Category",when(col("income") < 20000,"Low Salary").when((col("income") >= 20000) & (col("income") <=50000),"Average Salary").when(col("income") > 50000,"High Salary")) \
+  .groupBy(col("Income Category")) \
+  .agg(count("id").alias("account count"))
+
+df2.display()
+
+# COMMAND ----------
+
+salary.alias("s").join(df2.alias("df2"),col("s.category") == col("df2.income category"),"left") \
+                 .withColumn("account count",when(col("account count").isNull(),0).otherwise(col("account count"))) \
+                 .select(col("s.category"),col("account count")).display()
+
+# COMMAND ----------
+
+data = [
    ('Jan',2000,1500,3000),
    ('Feb',1000,2500,4000),
    ('Mar',2000,1400,1000),
    ('Apr',3000,1500,1000)
 ]
+
+# COMMAND ----------
+
+
 
 # COMMAND ----------
 
