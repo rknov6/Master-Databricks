@@ -1,4 +1,267 @@
 -- Databricks notebook source
+Create or replace table Users
+(
+user_id int,
+user_name varchar(20),
+credit int
+);
+
+Create or replace table Transactions
+(
+trans_id int,
+paid_by int,
+paid_to int,
+amount int,
+transacted_on date
+);
+
+insert into Users (user_id, user_name, credit) values
+('1', 'Moustafa', '100'),
+('2', 'Jonathan', '200'),
+('3', 'Winston', '10000'),
+('4', 'Luis', '800');
+
+insert into Transactions (trans_id, paid_by, paid_to, amount, transacted_on) values
+('1', '1', '3', '400', '2020-08-01'),
+('2', '3', '2', '500', '2020-08-02'),
+('3', '2', '1', '200', '2020-08-03'),
+('4', '2', '4', '100', '2020-08-04')
+
+-- COMMAND ----------
+
+select * from users;
+
+-- COMMAND ----------
+
+select * from transactions;
+
+-- COMMAND ----------
+
+with cte as (select
+u.user_id,
+u.user_name,
+u.credit - coalesce(t.amount,0) as credit
+from users u left join transactions t on u.user_id = t.paid_by
+)
+select 
+c.user_id,
+c.user_name,
+c.credit + coalesce(t.amount,0) as credit,
+case when c.credit + coalesce(t.amount,0) < 0 then 'Yes' else 'No' end as credit_limit_breached
+from cte c left join transactions t on c.user_id = t.paid_to
+
+
+-- COMMAND ----------
+
+select
+u.user_id,
+u.user_name,
+u.credit - coalesce(t.amount,0) + coalesce(t2.amount,0) as credit,
+case when u.credit - coalesce(t.amount,0) + coalesce(t2.amount,0) < 0 then 'Yes' else 'No' end as credit_limit_breached
+from users u left join transactions t on u.user_id = t.paid_by
+left join transactions t2 on u.user_id = t2.paid_to
+
+
+-- COMMAND ----------
+
+with credit as (
+  select user_id,user_name,credit from users
+)
+,paid_by
+(select user_id,user_name,sum(coalesce(t.amount,0)) as paid_amount
+from users u left join transactions t on u.user_id = t.paid_by
+group by user_id,user_name
+)
+,paid_to (
+  select user_id,user_name,sum(coalesce(t.amount,0)) as paid_to
+from users u left join transactions t on u.user_id = t.paid_to
+group by user_id,user_name
+)
+select 
+c.user_id,c.user_name,
+c.credit - p.paid_amount + p2.paid_to as credit,
+CASE WHEN c.credit - p.paid_amount + p2.paid_to < 0 THEN 'Yes' ELSE 'No' END as credit_limit_breached
+from credit c join paid_by p on c.user_id = p.user_id
+join paid_to p2 on c.user_id = p2.user_id
+order by user_id
+
+-- COMMAND ----------
+
+SELECT 
+ u.user_id,
+ u.user_name,
+ u.credit,
+ u.credit + COALESCE(SUM(t.amount), 0) AS current_balance,
+ CASE WHEN u.credit + COALESCE(SUM(t.amount), 0) < 0 THEN 'Yes' ELSE 'No' END AS credit_limit_breached
+FROM 
+ Users u
+LEFT JOIN 
+ Transactions t ON u.user_id = t.paid_by
+GROUP BY 
+ u.user_id, u.user_name, u.credit
+ORDER BY 
+ u.user_id;
+
+-- COMMAND ----------
+
+create or replace table Employee(id int,name string,salary int,manager_id int)
+
+-- COMMAND ----------
+
+insert into Employee values (1,"Joe",70000,3),(2,"Henry",80000,4),(3,"Sam",60000,Null),(4,"Max",90000,Null)
+
+-- COMMAND ----------
+
+select * from employee
+
+-- COMMAND ----------
+
+with cte as (select a.name,
+from employee a left join employee b
+on a.id = b.manager_id
+)
+select distinct b.name
+from cte 
+
+
+-- COMMAND ----------
+
+CREATE TABLE brands (
+ brand1 VARCHAR(20),
+ brand2 VARCHAR(20),
+ year INT,
+ custom1 INT,
+ custom2 INT,
+ custom3 INT,
+ custom4 INT
+);
+INSERT INTO brands VALUES ('apple', 'samsung', 2020, 1, 2, 1, 2);
+INSERT INTO brands VALUES ('samsung', 'apple', 2020, 1, 2, 1, 2);
+INSERT INTO brands VALUES ('apple', 'samsung', 2021, 1, 2, 5, 3);
+INSERT INTO brands VALUES ('samsung', 'apple', 2021, 5, 3, 1, 2);
+INSERT INTO brands VALUES ('google', NULL, 2020, 5, 9, NULL, NULL);
+INSERT INTO brands VALUES ('oneplus', 'nothing', 2020, 5, 9, 6, 3);
+
+-- COMMAND ----------
+
+select * from brands;
+
+-- COMMAND ----------
+
+with cte as (select b1.*
+from
+brands b1 left join brands b2 on b2.brand1 = b1.brand2 and b2.year = b1.year
+)
+select 
+c.*
+from cte c
+where custom1 = custom3 and custom2 = custom4
+qualify row_number() over(order by year) = 1
+union
+select 
+c.*
+from cte c
+where custom1 <> custom3 and custom2 <> custom4
+
+-- COMMAND ----------
+
+with cte as (select b1.*
+from
+brands b1 left join brands b2 on b2.brand1 = b1.brand2 and b2.year = b1.year
+)
+select * from cte
+
+-- COMMAND ----------
+
+CREATE TABLE footer 
+(
+id INT ,
+car VARCHAR(20), 
+length INT, 
+width INT, 
+height INT
+);
+INSERT INTO footer VALUES (1, 'Hyundai Tucson', 15, 6, NULL);
+INSERT INTO footer VALUES (2, NULL, NULL, NULL, 20);
+INSERT INTO footer VALUES (3, NULL, 12, 8, 15);
+INSERT INTO footer VALUES (4, 'Toyota Rav4', NULL, 15, NULL);
+INSERT INTO footer VALUES (5, 'Kia Sportage', NULL, NULL, 18);
+
+-- COMMAND ----------
+
+select * from footer
+
+-- COMMAND ----------
+
+select 
+max(case when id = (select max(id) from footer where car is not null) then car end) car,
+max(case when id = (select max(id) from footer where length is not null) then length end) length,
+max(case when id = (select max(id) from footer where width is not null) then width end) width,
+max(case when id = (select max(id) from footer where height is not null) then height end) height
+from footer
+
+-- COMMAND ----------
+
+
+
+-- COMMAND ----------
+
+WITH cte1
+AS (
+SELECT *, ROW_NUMBER() OVER (ORDER BY (SELECT 1)) AS rn
+FROM brands
+)
+,cte2
+AS (
+SELECT c1.*
+,CASE 
+WHEN c1.custom1 = c1.custom3
+AND c1.custom2 = c1.custom4
+AND c2.custom1 = c2.custom3
+AND c2.custom2 = c2.custom4
+AND c1.rn < c2.rn
+THEN 'true'
+WHEN c1.custom1 <> c1.custom3
+AND c1.custom2 <> c1.custom4
+AND c2.custom1 <> c2.custom3
+AND c2.custom2 <> c2.custom4
+THEN 'true'
+WHEN c2.brand1 IS NULL
+THEN 'true'
+ELSE 'false'
+END AS is_flag
+FROM cte1 c1
+LEFT JOIN cte1 c2 ON c1.brand2 = c2.brand1
+AND c1.year = c2.year
+)
+select * from cte2
+
+-- COMMAND ----------
+
+create table ecommerce(dept varchar(50),txnmonth varchar(50),txnamount int);
+insert into ecommerce values('Electronics','Jan',1000);
+insert into ecommerce values('Electronics','Feb',2000);
+insert into ecommerce values('Electronics','Mar',2500);
+insert into ecommerce values('Textile','Jan',1000);
+insert into ecommerce values('Textile','Feb',2000);
+insert into ecommerce values('Textile','Mar',1500);
+insert into ecommerce values('Sports','Jan',600);
+insert into ecommerce values('Sports','Feb',200);
+insert into ecommerce values('Sports','Mar',500);
+
+-- COMMAND ----------
+
+with cte as (
+  select dept,txnmonth,txnamount,
+  dense_rank() over (order by txnamount desc) as rnk
+  from ecommerce
+)
+select max(case when rnk = (select max(rnk) from cte) then dept end) minvalue,
+max(case when rnk = (select min(rnk) from cte) then dept end) maxvalue
+from cte
+
+-- COMMAND ----------
+
 drop table if exists namaste_orders;
 create table namaste_orders
 (
